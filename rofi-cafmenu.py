@@ -1,8 +1,8 @@
-#!./venv/bin/python
+#!/home/mbradley/dev/rofi-cafmenu/venv/bin/python
 import calendar
+import datetime
 import enum
 import json
-import datetime
 
 import requests
 import rofi_menu
@@ -15,12 +15,24 @@ class Meal(enum.Enum):
     DINNER = 2085
 
 
-def iter_days(start_day: datetime.date, num_days: int):
+class Menu:
+    def __init__(self, data):
+        station_ids = {
+            station["StationId"]: station["Name"]
+            for station in data["Menu"]["MenuStations"]
+            if station["PeriodId"] == data["SelectedPeriodId"]
+        }
+        self.stations = {name: [] for name in station_ids.values()}
+        for food in data["Menu"]["MenuProducts"]:
+            self.stations[station_ids[food["StationId"]]].append(food["Product"]["MarketingName"])
+
+
+def iter_days(start_day: datetime.datetime, num_days: int):
     for i in range(num_days):
         yield start_day + datetime.timedelta(days=i)
 
 
-def get_menus(start_day: datetime.date, num_days: int):
+def get_menus(start_day: datetime.datetime, num_days: int):
     meals = []
     for day in iter_days(start_day, num_days):
         for meal in Meal:
@@ -28,8 +40,12 @@ def get_menus(start_day: datetime.date, num_days: int):
     return meals
 
 
-def get_menu(day: datetime.date, meal: Meal):
-    return get_cached_menu(day, meal) or get_online_menu(day, meal)
+def get_menu(day: datetime.datetime, meal: Meal, synchronous: bool = True) -> Menu | None:
+    menu = get_cached_menu(day, meal)
+    if menu:
+        return menu
+    if synchronous:
+        return get_online_menu(day, meal)
 
 
 CACHE = xdg.xdg_cache_home() / "rofi-cafmenu"
@@ -37,7 +53,7 @@ CACHE.mkdir(parents=True, exist_ok=True)
 
 
 def get_file(day: datetime.date, meal: Meal):
-    return CACHE / f"{day.isoformat()}-{meal.name}.json"
+    return CACHE / f"{day.date().isoformat()}-{meal.name}.json"
 
 
 def get_cached_menu(day: datetime.date, meal: Meal):
@@ -59,18 +75,6 @@ def get_online_menu(day: datetime.date, meal: Meal):
     return Menu(menu_data)
 
 
-class Menu:
-    def __init__(self, data):
-        station_ids = {
-            station["StationId"]: station["Name"]
-            for station in data["Menu"]["MenuStations"]
-            if station["PeriodId"] == data["SelectedPeriodId"]
-        }
-        self.stations = {name: [] for name in station_ids.values()}
-        for food in data["Menu"]["MenuProducts"]:
-            self.stations[station_ids[food["StationId"]]].append(food["Product"]["MarketingName"])
-
-
 class StationMenu(rofi_menu.Menu):
     prompt = "Stations"
 
@@ -79,15 +83,20 @@ class StationMenu(rofi_menu.Menu):
         if menu is None:
             return
         self.items = [rofi_menu.BackItem()]
-        self.items.extend([
-            rofi_menu.NestedMenu(
-                text=station,
-                menu=rofi_menu.Menu(
-                    prompt="Dishes",
-                    items=[rofi_menu.BackItem()] + [rofi_menu.Item(item) for item in items]
+        for (station, items) in menu.stations.items():
+            for item in items:
+                self.items.append(
+                    rofi_menu.Item(
+                        f"{station}: {item}"
+                    )
                 )
-            ) for station, items in menu.stations.items()
-        ])
+
+
+MEAL_END_HOURS = {
+    Meal.BREAKFAST: 11,
+    Meal.LUNCH: 16,
+    Meal.DINNER: 22,
+}
 
 
 class MealMenu(rofi_menu.Menu):
@@ -96,12 +105,18 @@ class MealMenu(rofi_menu.Menu):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.items = []
-        for day in iter_days(datetime.date.today(), 3):
+        now = datetime.datetime.now()
+        for day in iter_days(datetime.datetime.today(), 3):
             for meal in Meal:
+                if now > day.replace(hour=MEAL_END_HOURS[meal], minute=0, second=0, microsecond=0):
+                    continue
+                menu = get_menu(day, meal, False)
+                if not menu:
+                    continue
                 self.items.append(
                     rofi_menu.NestedMenu(
-                        text=calendar.day_name[day.weekday()] + " " + meal.name.lower(),
-                        menu=StationMenu(menu=get_menu(day, meal))
+                        text=calendar.day_abbr[day.weekday()] + " " + meal.name.lower().capitalize(),
+                        menu=StationMenu(menu=menu)
                     )
                 )
 
