@@ -30,7 +30,7 @@ class MealMenu(rofi_menu.Menu):
         for day in dates.iter_days(datetime.datetime.today(), num_days):
             for meal in data.Meal:
                 # If the meal is already over, skip it
-                if now > dates.get_hour(now, MEAL_END_HOURS[meal]):
+                if now > dates.get_hour(day, MEAL_END_HOURS[meal]):
                     continue
 
                 # If there was some problem getting the menu, skip it
