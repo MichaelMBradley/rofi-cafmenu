@@ -63,28 +63,33 @@ CONFIG = xdg.xdg_config_home() / APP_NAME
 CONFIG.mkdir(parents=True, exist_ok=True)
 
 
-def get_configuration() -> dict[str: typing.Any] | None:
+def get_configuration() -> dict[str: typing.Any]:
     """Returns the JSON data from the config file."""
     config_path = CONFIG / "config.json"
     if config_path.exists() and config_path.is_file():
         return json.loads(config_path.read_text())
+    return {}
 
 
 configuration = get_configuration()
 
 
 def get_config_item(item: str) -> typing.Any | None:
+    """Retrieve a field from the configuration, if it exists."""
     if item in configuration:
         return configuration[item]
 
 
 def ignored_dishes() -> list[str]:
+    """Retrieve a list of dishes to not display."""
     return get_config_item("ignored-items") or []
 
 
 def ignored_meals() -> list[str]:
+    """Retrieve a list of mealtimes to not display."""
     return get_config_item("ignored-meals") or []
 
 
 def ignored_stations() -> list[str]:
+    """Retrieve a list of stations to not display."""
     return get_config_item("ignored-stations") or []
