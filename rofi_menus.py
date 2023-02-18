@@ -20,7 +20,7 @@ class MealMenu(rofi_menu.Menu):
     """A menu to display a list of submenus, one for each upcoming meal."""
     prompt = "Meals"
 
-    def __init__(self, num_days: int = 3, **kwargs):
+    def __init__(self, num_days: int = 7, **kwargs):
         """Creates submenus for breakfast, lunch, and dinner for the next `num_days` days."""
         super().__init__(**kwargs)
 
@@ -29,8 +29,8 @@ class MealMenu(rofi_menu.Menu):
 
         for day in dates.iter_days(datetime.datetime.today(), num_days):
             for meal in data.Meal:
-                # If the meal is already over, skip it
-                if now > dates.get_hour(day, MEAL_END_HOURS[meal]):
+                # If the meal is ignored or already over, skip it
+                if meal.name in data.ignored_meals() or now > dates.get_hour(day, MEAL_END_HOURS[meal]):
                     continue
 
                 # If there was some problem getting the menu, skip it
@@ -62,11 +62,15 @@ class StationMenu(rofi_menu.Menu):
         self.items = [rofi_menu.BackItem()]
 
         # For each station, get its name and list of meals
-        for (station, meals) in menu.stations.items():
+        for (station, dishes) in menu.stations.items():
+            if station in data.ignored_stations():
+                continue
             # For each meal, add a listing containing its station and name
-            for meal in meals:
+            for dish in dishes:
+                if dish in data.ignored_dishes():
+                    continue
                 self.items.append(
                     rofi_menu.Item(
-                        f"{station}: {meal}"
+                        f"{station}: {dish}"
                     )
                 )
