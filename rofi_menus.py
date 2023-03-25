@@ -61,16 +61,25 @@ class StationMenu(rofi_menu.Menu):
         # Start with the option to go back
         self.items = [rofi_menu.BackItem()]
 
+        # FIXME: Extract to function,
+        #  add configuration to use old method,
+        #  add configuration to split on words rather than meals
         # For each station, get its name and list of meals
         for (station, dishes) in menu.stations.items():
+            # Add each meal to its row, creating a new row when it gets too long
             if station in data.ignored_stations():
                 continue
-            # For each meal, add a listing containing its station and name
+            lines = [station + ": "]
+            initial_offset = len(lines[0])
             for dish in dishes:
                 if dish in data.ignored_dishes():
                     continue
-                self.items.append(
-                    rofi_menu.Item(
-                        f"{station}: {dish}"
-                    )
-                )
+                if len(lines[-1]) + len(dish) + 3 > data.MAX_LINE_LENGTH:
+                    lines[-1] = lines[-1] + ","
+                    lines.append(" " * (initial_offset - 4) + "└ : ")
+                if len(lines[-1]) == initial_offset:
+                    lines[-1] = lines[-1] + dish
+                else:
+                    lines[-1] = lines[-1] + ", " + dish
+            for line in lines:
+                self.items.append(rofi_menu.Item(line))

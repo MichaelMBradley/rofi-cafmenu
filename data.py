@@ -72,6 +72,7 @@ def get_configuration() -> dict[str: typing.Any]:
 
 
 configuration = get_configuration()
+MAX_LINE_LENGTH = 112  # FIXME: Make configurable
 
 
 def get_config_item(item: str) -> typing.Any | None:
