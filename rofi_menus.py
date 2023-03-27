@@ -69,15 +69,16 @@ class StationMenu(rofi_menu.Menu):
             # Add each meal to its row, creating a new row when it gets too long
             if station in data.ignored_stations():
                 continue
-            lines = [station + ": "]
-            initial_offset = len(lines[0])
+            lines = ["<b>" + station + "</b>: "]
+            # FIXME: The -7 magic number should also be handled better, it represents the pango characters not displayed
+            initial_offset = len(lines[0]) - 7
             for dish in dishes:
                 if dish in data.ignored_dishes():
                     continue
-                if len(lines[-1]) + len(dish) + 3 > data.MAX_LINE_LENGTH:
+                if len(lines[-1]) + len(dish) + 3 - 7 > data.MAX_LINE_LENGTH:
                     lines[-1] = lines[-1] + ","
-                    lines.append(" " * (initial_offset - 4) + "└ : ")
-                if len(lines[-1]) == initial_offset:
+                    lines.append(" " * (initial_offset - 4) + "<b>└</b> : ")
+                if len(lines[-1]) - 7 == initial_offset:
                     lines[-1] = lines[-1] + dish
                 else:
                     lines[-1] = lines[-1] + ", " + dish
